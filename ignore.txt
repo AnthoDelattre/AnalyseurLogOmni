@@ -1,0 +1,27 @@
+# Lignes a NE PAS considerer comme des erreurs / avertissements.
+# Une entree par ligne. La comparaison se fait par "contient" (insensible a la casse).
+# Les lignes vides et celles commencant par # sont ignorees.
+
+ENTERING HOOK : PerformPreDumpPOSLogHook
+EXITING HOOK : PerformPreDumpPOSLogHook
+ENTERING HOOK : PerformPreCalculatedExtendedAmountOp
+EXITING HOOK : PerformPreCalculatedExtendedAmountOp
+ENTERING HOOK : PerformExtendedTaxOperationHook
+EXITING HOOK : PerformExtendedTaxOperationHook
+ENTERING HOOK : PerformExtendedAddItemHook
+EXITING HOOK : PerformExtendedAddItemHook
+ENTERING HOOK : PerformPreUpdateTransactionTotalledStatusOperations
+EXITING HOOK : PerformPreUpdateTransactionTotalledStatusOperations
+ENTERING HOOK : PerformPreProcessTenderCardOperations
+EXITING HOOK : PerformPreProcessTenderCardOperations
+ENTERING HOOK : PerformPreProcessTaxReceiptOperations
+EXITING HOOK : PerformPreProcessTaxReceiptOperations
+ENTERING HOOK : PerformPreTaxReceiptDetailsOperations
+EXITING HOOK : PerformPreTaxReceiptDetailsOperations
+ENTERING HOOK : PerformPostTaxReceiptDetailsOperations
+EXITING HOOK : PerformPostTaxReceiptDetailsOperations
+ENTERING HOOK : PerformPreProcessTransactionFinishedOperations
+EXITING HOOK : PerformPreProcessTransactionFinishedOperations
+Entering method getUserTokenDetails
+ENTERING EMAIL PRESELECTION METHOD
+PathName:/home/omnistore/omnistore-home/i18n_messages/salereturn

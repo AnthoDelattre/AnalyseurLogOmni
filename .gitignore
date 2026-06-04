@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environnements virtuels
+.venv_build/
+.venv/
+venv/
+
+# Artefacts de build PyInstaller
+build/
+dist/
+*.spec.bak
+
+# Config / cache générés à l'exécution
+.analyseur_config.json
+.analyseur_cache/
+
+# OS
+.DS_Store
+
+# Sorties de logs de debug
+/tmp/analyseur.out

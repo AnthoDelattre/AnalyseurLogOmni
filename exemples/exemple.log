@@ -1,0 +1,21 @@
+2024-05-12T08:00:01.123Z INFO  Demarrage du service api-gateway v2.3.1
+2024-05-12T08:00:02.001Z INFO  GET /api/users?page=1 -> 200 in 34ms
+{"time":"2024-05-12T08:00:03.500Z","level":"INFO","appName":"auth-service","method":"POST","url":"https://api.exemple.com/v1/login","status":200,"durationMs":120,"user":"marie"}
+2024-05-12 08:00:04 WARN Latence elevee sur GET https://api.exemple.com/v1/orders status=200 (1450ms) app=orders-service
+{"time":"2024-05-12T08:00:05.220Z","level":"ERROR","appName":"orders-service","method":"GET","url":"https://api.exemple.com/v1/orders/8821","status":500,"message":"Internal Server Error","trace":"NullPointerException at OrderService.java:142"}
+192.168.1.20 - - [12/May/2024:08:00:06 +0000] "GET /api/products/55 HTTP/1.1" 404 512
+2024-05-12T08:00:07.880Z DEBUG Cache miss pour la cle product:55
+2024-05-12T08:00:08.010Z ERROR Echec de connexion a la base de donnees: timeout after 5000ms
+{"timestamp":"2024-05-12T08:00:09.000Z","severity":"WARNING","appName":"auth-service","msg":"Token bientot expire","uri":"/api/auth/refresh","httpMethod":"POST","statusCode":401}
+{"time":"2024-05-12T08:00:10.500Z","level":"INFO","service":"payment-service","method":"POST","url":"/api/payments","status":201,"amount":49.9,"currency":"EUR","provider":"stripe"}
+2024-05-12T08:00:11.700Z ERROR Exception non geree: ValueError: invalid literal for int()
+192.168.1.55 - - [12/May/2024:08:00:12 +0000] "DELETE /api/users/77 HTTP/1.1" 204 0
+{"time":"2024-05-12T08:00:13.300Z","level":"INFO","appName":"users-service","method":"PUT","url":"https://api.exemple.com/v1/users/77","status":200}
+2024-05-12T08:00:14.900Z WARN  Quota API presque atteint pour client_id=ABC123 (95%)
+2024-05-12T08:00:15.100Z INFO  GET /health -> 200 in 2ms
+{"time":"2024-05-12T08:00:16.450Z","level":"ERROR","appName":"auth-service","method":"POST","url":"https://api.exemple.com/v1/login","status":403,"message":"Forbidden: bad credentials","user":"inconnu"}
+2024-05-12T08:00:17.000Z FATAL Arret d'urgence: memoire insuffisante (OOM)
+2024-05-12T08:00:18.200Z INFO  API call termine - Message : {'app_name': 'api-quotation', 'request': '{\n  "pointOfSale" : "12"\n}', 'http_code': 200, 'response': '{"id":"b39d7e53","version":4}'}
+2024-05-12T08:00:19.400Z INFO  API call termine - Message : {'app_name': 'api-quotation', 'http_code': 500, 'response': '{"error":"timeout"}'}
+2024-05-12T08:00:20.600Z INFO  API call termine - Message : {'app_name': 'pos-core', 'http_code': 200}
+{"service":"omnistore-frlm-pos","level":"INFO","log_timestamp":"2024-05-12 08:00:21.791","message":{"app_name":"api-quotation","request":"{\"pointOfSale\":\"12\",\"items\":[1,2,3]}","http_code":200,"response":"{\"id\":\"b39d7e53\",\"version\":4,\"ok\":true}","url":"https://host/api-quotation/v1/quote","execution_time":"143ms"}}

@@ -1,0 +1,64 @@
+name: Build multi-OS
+
+# Genere les executables Windows, macOS et Linux automatiquement.
+# Se declenche a chaque tag "v*" (ex: v1.0) ou manuellement (onglet Actions).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests unitaires
+        run: python -m unittest -v
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            nom: windows
+            artefact: dist/AnalyseurLog.exe
+          - os: macos-latest
+            nom: macos
+            artefact: dist/AnalyseurLog.app
+          - os: ubuntu-latest
+            nom: linux
+            artefact: dist/AnalyseurLog
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Dependances Tk (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+
+      - name: Installer PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Compiler
+        run: pyinstaller --noconfirm --clean AnalyseurLog.spec
+
+      - name: Publier l'artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnalyseurLog-${{ matrix.nom }}
+          path: ${{ matrix.artefact }}
