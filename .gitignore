@@ -13,6 +13,9 @@ build/
 dist/
 *.spec.bak
 
+# Binaires tiers telecharges par la CI (plink/pscp)
+vendor/
+
 # Config / cache générés à l'exécution
 .analyseur_config.json
 .analyseur_cache/

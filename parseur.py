@@ -15,6 +15,9 @@ import os
 import re
 import select
 import shlex
+import shutil
+import subprocess
+import sys
 import time
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -22,11 +25,52 @@ from datetime import datetime
 try:
     import pty
     import signal
-    SSH_DISPONIBLE = hasattr(os, "fork")
+    _PTY_OK = hasattr(os, "fork")
 except ImportError:  # Windows : pas de pty
     pty = None
     signal = None
-    SSH_DISPONIBLE = False
+    _PTY_OK = False
+
+
+def _dossier_vendor():
+    """Dossier des binaires embarques (plink/pscp), compatible PyInstaller."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, "vendor", "windows")
+
+
+def _localiser_outil(noms):
+    """Cherche un outil d'abord parmi les binaires embarques, puis dans le PATH."""
+    dossier = _dossier_vendor()
+    for nom in noms:
+        chemin = os.path.join(dossier, nom)
+        if os.path.exists(chemin):
+            return chemin
+    for nom in noms:
+        chemin = shutil.which(nom)
+        if chemin:
+            return chemin
+    return None
+
+
+def _plink():
+    return _localiser_outil(["plink.exe", "plink"])
+
+
+def _pscp():
+    return _localiser_outil(["pscp.exe", "pscp"])
+
+
+# Choix du backend SSH selon la plateforme :
+#   - "pty"   : Unix/macOS, mot de passe pilote via pseudo-terminal (natif).
+#   - "plink" : Windows, via plink.exe/pscp.exe (PuTTY) embarques ou dans le PATH.
+if _PTY_OK:
+    SSH_BACKEND = "pty"
+elif os.name == "nt" and _plink() and _pscp():
+    SSH_BACKEND = "plink"
+else:
+    SSH_BACKEND = None
+
+SSH_DISPONIBLE = SSH_BACKEND is not None
 
 
 # ===========================================================================
@@ -642,6 +686,100 @@ def _executer_pty(cmd, motdepasse, timeout, on_log=None, doit_continuer=None,
     return code, "".join(sortie)
 
 
+def _executer_subprocess(cmd, motdepasse, timeout, on_log=None,
+                         doit_continuer=None, max_mdp=3):
+    """Backend Windows : pilote plink/pscp via des tubes (pas de pty).
+
+    plink/pscp realisent leur propre authentification avec l'option -pw ; ce
+    driver repond en plus au prompt de mot de passe du rebond interne (sshclient
+    lance a travers le pty distant) et accepte les cles d'hote inconnues ('y').
+    Lecture octet par octet pour detecter les prompts sans retour a la ligne.
+    """
+    import threading
+    import queue as _queue
+    try:
+        proc = subprocess.Popen(
+            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, bufsize=0,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except FileNotFoundError:
+        return 127, "command not found: %s" % cmd[0]
+
+    file_attente = _queue.Queue()
+
+    def _lecteur():
+        while True:
+            try:
+                octet = proc.stdout.read(1)
+            except Exception:
+                break
+            if not octet:
+                break
+            file_attente.put(octet)
+        file_attente.put(None)
+
+    threading.Thread(target=_lecteur, daemon=True).start()
+
+    sortie = []
+    buf = ""
+    mdp_envoyes = 0
+    cle_acceptee = False
+    debut = time.time()
+    fini = False
+
+    def _ecrire(donnees):
+        try:
+            proc.stdin.write(donnees)
+            proc.stdin.flush()
+        except (OSError, ValueError):
+            pass
+
+    while not fini:
+        if doit_continuer is not None and not doit_continuer():
+            proc.kill()
+            return 130, "".join(sortie) + "\n[interrompu]"
+        if time.time() - debut > timeout:
+            proc.kill()
+            return 124, "".join(sortie) + "\nconnection timed out"
+        try:
+            octet = file_attente.get(timeout=0.2)
+        except _queue.Empty:
+            if proc.poll() is not None:
+                fini = True
+            continue
+        if octet is None:
+            fini = True
+            continue
+        texte = octet.decode("utf-8", "replace")
+        sortie.append(texte)
+        if on_log:
+            on_log(texte)
+        buf += texte
+        bas = buf.lower()
+        if mdp_envoyes < max_mdp and "password" in bas and bas.rstrip().endswith(":"):
+            _ecrire((motdepasse + "\n").encode())
+            mdp_envoyes += 1
+            buf = ""
+        elif not cle_acceptee and ("(y/n" in bas or "store key in cache" in bas):
+            _ecrire(b"y\n")
+            cle_acceptee = True
+            buf = ""
+        elif len(buf) > 8192:
+            buf = buf[-2048:]
+    proc.wait()
+    return proc.returncode or 0, "".join(sortie)
+
+
+def _executer(cmd, motdepasse, timeout, on_log=None, doit_continuer=None,
+              max_mdp=1):
+    """Lance la commande SSH/SCP avec le backend adapte a la plateforme."""
+    if SSH_BACKEND == "plink":
+        return _executer_subprocess(cmd, motdepasse, timeout, on_log=on_log,
+                                    doit_continuer=doit_continuer, max_mdp=max_mdp)
+    return _executer_pty(cmd, motdepasse, timeout, on_log=on_log,
+                         doit_continuer=doit_continuer, max_mdp=max_mdp)
+
+
 def telecharger_scp(hote, utilisateur, chemin_distant, destination, motdepasse,
                     port=22, timeout=120, on_log=None):
     """Telecharge un fichier distant via scp en authentification par mot de passe.
@@ -652,22 +790,29 @@ def telecharger_scp(hote, utilisateur, chemin_distant, destination, motdepasse,
     """
     if not SSH_DISPONIBLE:
         raise ErreurSSH("Le téléchargement SSH par mot de passe n'est pas "
-                        "disponible sur ce système (Windows non supporté).")
+                        "disponible : installez PuTTY (plink/pscp) sur Windows.")
     if not (hote and utilisateur and chemin_distant and motdepasse):
         raise ErreurSSH("Hôte, utilisateur, chemin distant et mot de passe "
                         "sont obligatoires.")
-    cmd = [
-        "scp",
-        "-o", "StrictHostKeyChecking=accept-new",
-        "-o", "PubkeyAuthentication=no",
-        "-o", "PreferredAuthentications=password,keyboard-interactive",
-        "-o", "NumberOfPasswordPrompts=1",
-        "-o", f"ConnectTimeout={int(min(timeout, 30))}",
-        "-P", str(port),
-        f"{utilisateur}@{hote}:{chemin_distant}",
-        destination,
-    ]
-    code, sortie = _executer_pty(cmd, motdepasse, timeout, on_log)
+    if SSH_BACKEND == "plink":
+        cmd = [
+            _pscp(), "-pw", motdepasse, "-P", str(port),
+            f"{utilisateur}@{hote}:{chemin_distant}",
+            destination,
+        ]
+    else:
+        cmd = [
+            "scp",
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "PubkeyAuthentication=no",
+            "-o", "PreferredAuthentications=password,keyboard-interactive",
+            "-o", "NumberOfPasswordPrompts=1",
+            "-o", f"ConnectTimeout={int(min(timeout, 30))}",
+            "-P", str(port),
+            f"{utilisateur}@{hote}:{chemin_distant}",
+            destination,
+        ]
+    code, sortie = _executer(cmd, motdepasse, timeout, on_log)
     if code != 0:
         if os.path.exists(destination) and os.path.getsize(destination) == 0:
             try:
@@ -713,6 +858,14 @@ def commande_bastion(ldap, motdepasse, caisse=None, magasin=None, date=None):
     appdir = BASTION_APP_LOG.format(base=base)
     # nettoyage du dossier puis lancement du script
     distant = f"rm -rf {appdir} 2>/dev/null; mkdir -p {appdir}; {interne}"
+    if SSH_BACKEND == "plink":
+        # plink gere l'auth du bastion via -pw ; le prompt du rebond interne
+        # (sshclient) est alimente sur stdin par le driver, la cle d'hote par 'y'.
+        return [
+            _plink(), "-ssh", "-t", "-pw", motdepasse,
+            cible,
+            distant,
+        ]
     return [
         "ssh", "-tt",
         "-o", "StrictHostKeyChecking=accept-new",
@@ -733,13 +886,13 @@ def session_bastion(ldap, motdepasse, on_log=None, caisse=None, magasin=None,
     Retourne (code_retour, transcription_complete).
     """
     if not SSH_DISPONIBLE:
-        raise ErreurSSH("Le SSH par mot de passe n'est pas disponible sur ce "
-                        "système (Windows non supporté).")
+        raise ErreurSSH("Le SSH par mot de passe n'est pas disponible : "
+                        "installez PuTTY (plink/pscp) sur Windows.")
     if not (ldap and motdepasse):
         raise ErreurSSH("Identifiant LDAP et mot de passe obligatoires.")
     cmd = commande_bastion(ldap, motdepasse, caisse, magasin, date)
-    return _executer_pty(cmd, motdepasse, timeout, on_log=on_log,
-                         doit_continuer=doit_continuer, max_mdp=3)
+    return _executer(cmd, motdepasse, timeout, on_log=on_log,
+                     doit_continuer=doit_continuer, max_mdp=3)
 
 
 def lister_fichiers(dossier):
@@ -761,26 +914,33 @@ def recuperer_logs_bastion(ldap, motdepasse, destination_dir, on_log=None,
     ne pas bloquer la lecture. Leve ErreurSSH seulement si rien n'a ete recupere.
     """
     if not SSH_DISPONIBLE:
-        raise ErreurSSH("Le SSH par mot de passe n'est pas disponible sur ce "
-                        "système (Windows non supporté).")
+        raise ErreurSSH("Le SSH par mot de passe n'est pas disponible : "
+                        "installez PuTTY (plink/pscp) sur Windows.")
     if not (ldap and motdepasse):
         raise ErreurSSH("Identifiant LDAP et mot de passe obligatoires.")
     cible = ldap if "@" in ldap else f"{ldap}@{BASTION_HOTE}"
     base = ldap.split("@")[0]
     distant = BASTION_APP_LOG.format(base=base)
     os.makedirs(destination_dir, exist_ok=True)
-    cmd = [
-        "scp", "-r",
-        "-o", "StrictHostKeyChecking=accept-new",
-        "-o", "HostKeyAlgorithms=+ssh-rsa",
-        "-o", "PubkeyAuthentication=no",
-        "-o", "PreferredAuthentications=password,keyboard-interactive",
-        "-o", "NumberOfPasswordPrompts=3",
-        f"{cible}:{distant}/.",
-        destination_dir,
-    ]
-    code, sortie = _executer_pty(cmd, motdepasse, timeout, on_log=on_log,
-                                 doit_continuer=doit_continuer, max_mdp=3)
+    if SSH_BACKEND == "plink":
+        cmd = [
+            _pscp(), "-r", "-pw", motdepasse,
+            f"{cible}:{distant}/",
+            destination_dir,
+        ]
+    else:
+        cmd = [
+            "scp", "-r",
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "HostKeyAlgorithms=+ssh-rsa",
+            "-o", "PubkeyAuthentication=no",
+            "-o", "PreferredAuthentications=password,keyboard-interactive",
+            "-o", "NumberOfPasswordPrompts=3",
+            f"{cible}:{distant}/.",
+            destination_dir,
+        ]
+    code, sortie = _executer(cmd, motdepasse, timeout, on_log=on_log,
+                             doit_continuer=doit_continuer, max_mdp=3)
     fichiers = lister_fichiers(destination_dir)
     avertissement = ""
     if code != 0:

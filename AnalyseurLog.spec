@@ -6,11 +6,22 @@ import sys
 
 block_cipher = None
 
+# Sous Windows, embarque plink.exe/pscp.exe (PuTTY) s'ils ont ete deposes dans
+# vendor/windows/ (la CI les telecharge avant le build). Permet le SSH bastion.
+import os
+_datas = [('ignore.txt', '.')]   # liste d'exclusion embarquee
+_vendor = os.path.join('vendor', 'windows')
+if sys.platform == 'win32' and os.path.isdir(_vendor):
+    for _outil in ('plink.exe', 'pscp.exe'):
+        _p = os.path.join(_vendor, _outil)
+        if os.path.exists(_p):
+            _datas.append((_p, os.path.join('vendor', 'windows')))
+
 a = Analysis(
     ['analyseur.py'],
     pathex=[],
     binaries=[],
-    datas=[('ignore.txt', '.')],   # liste d'exclusion embarquee
+    datas=_datas,
     hiddenimports=['parseur'],
     hookspath=[],
     hooksconfig={},

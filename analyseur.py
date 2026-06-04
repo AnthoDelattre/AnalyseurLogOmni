@@ -530,8 +530,9 @@ class AnalyseurApp(tk.Tk):
         if not parseur.SSH_DISPONIBLE:
             messagebox.showerror(
                 "SSH indisponible",
-                "Le SSH par mot de passe n'est pas pris en charge sur ce "
-                "système (Windows).")
+                "Le SSH par mot de passe nécessite PuTTY sur Windows.\n"
+                "Installez PuTTY (plink.exe et pscp.exe) puis relancez "
+                "l'application.")
             return
 
         cfg_ssh = self.cfg.get("ssh", {})

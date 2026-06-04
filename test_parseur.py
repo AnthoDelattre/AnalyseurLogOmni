@@ -135,6 +135,40 @@ class TestSSH(unittest.TestCase):
         with self.assertRaises(parseur.ErreurSSH):
             parseur.telecharger_scp("", "", "", "/tmp/x", "")
 
+    def test_localiser_outil_absent(self):
+        self.assertIsNone(parseur._localiser_outil(["outil_inexistant_xyz.exe"]))
+
+    def test_commande_bastion_plink(self):
+        """Sous backend Windows, la commande doit utiliser plink + -pw."""
+        anc_backend = parseur.SSH_BACKEND
+        anc_plink = parseur._plink
+        try:
+            parseur.SSH_BACKEND = "plink"
+            parseur._plink = lambda: "C:/putty/plink.exe"
+            cmd = parseur.commande_bastion("10100168", "secret",
+                                           caisse="1", magasin="42", date="2026-01-01")
+        finally:
+            parseur.SSH_BACKEND = anc_backend
+            parseur._plink = anc_plink
+        self.assertEqual(cmd[0], "C:/putty/plink.exe")
+        self.assertIn("-pw", cmd)
+        self.assertIn("secret", cmd)
+        self.assertIn("10100168@" + parseur.BASTION_HOTE, cmd)
+        # les arguments du script restent double-quotes pour les 2 shells
+        self.assertIn(parseur.BASTION_SCRIPT, cmd[-1])
+
+    def test_commande_bastion_pty(self):
+        """Sous backend Unix, la commande reste un appel ssh classique."""
+        anc_backend = parseur.SSH_BACKEND
+        try:
+            parseur.SSH_BACKEND = "pty"
+            cmd = parseur.commande_bastion("10100168", "secret")
+        finally:
+            parseur.SSH_BACKEND = anc_backend
+        self.assertEqual(cmd[0], "ssh")
+        self.assertNotIn("-pw", cmd)
+        self.assertIn("HostKeyAlgorithms=+ssh-rsa", cmd)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

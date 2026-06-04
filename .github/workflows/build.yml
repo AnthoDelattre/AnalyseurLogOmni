@@ -54,6 +54,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
 
+      - name: Recuperer plink/pscp (PuTTY) pour le SSH bastion
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path vendor/windows | Out-Null
+          $base = 'https://the.earth.li/~sgtatham/putty/latest/w64'
+          Invoke-WebRequest "$base/plink.exe" -OutFile vendor/windows/plink.exe
+          Invoke-WebRequest "$base/pscp.exe"  -OutFile vendor/windows/pscp.exe
+
       - name: Compiler
         run: pyinstaller --noconfirm --clean AnalyseurLog.spec
 
