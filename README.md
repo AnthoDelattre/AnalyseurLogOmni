@@ -11,69 +11,91 @@ Application Tkinter pour analyser, filtrer et regrouper les erreurs dans les fic
 - **Récupération de logs distants via bastion SSH ADEO** (macOS/Linux et Windows avec PuTTY)
 - Persistance (géométrie, fichiers récents, configuration)
 
-## Installation
+## Installation et lancement
 
-### macOS
+### 🍎 macOS
 
-#### Option 1 : Script automatique (recommandé)
+#### Méthode 1 : Script automatique (recommandé)
 ```bash
-# Dézippe l'archive si ce n'est pas fait
-unzip AnalyseurLog-macos.zip
-
-# Lance le script d'installation
 bash install-macos.sh
 ```
 
 Le script :
-- Retire l'attribut de quarantaine Gatekeeper
-- Signe l'application
-- Place l'app dans `/Applications/`
-- Lance l'application
+- ✅ Dézipe l'archive si nécessaire
+- ✅ Retire l'attribut de quarantaine Gatekeeper
+- ✅ Signe l'application
+- ✅ Place l'app dans `/Applications/`
+- ✅ Lance l'application
 
-#### Option 2 : Manuel (si le script ne fonctionne pas)
+**C'est tout !** L'app se lancera immédiatement.
+
+#### Méthode 2 : Manuel (si le script ne fonctionne pas)
 ```bash
-# Dézippe
+# Déziper l'archive
 unzip AnalyseurLog-macos.zip
 
-# Retire la quarantaine
+# Retirer la quarantaine
 xattr -rd com.apple.quarantine AnalyseurLog.app
 
-# Signe
+# Signer
 codesign -s - AnalyseurLog.app --deep --force
 
-# Copie dans Applications
+# Copier dans Applications
 cp -r AnalyseurLog.app /Applications/
 
-# Lance
+# Lancer
 open /Applications/AnalyseurLog.app
 ```
 
-### Windows
+#### Dépannage macOS
+- **« Application potentiellement malveillante »** → Utilise la Méthode 1 (script)
+- **Icône verrouillée** → Essaie à nouveau le script ou la Méthode 2
 
-Télécharge `AnalyseurLog-windows.exe` et double-clic pour lancer.
+### 🪟 Windows
 
-**Note :** Au premier lancement, SmartScreen peut afficher un avertissement → clique « Exécuter quand même ».
+#### Méthode simple
+1. **Télécharge** `AnalyseurLog.exe`
+2. **Double-clic** sur le fichier
+3. Si une fenêtre « Windows Defender SmartScreen » apparaît :
+   - Clique **« Infos supplémentaires »**
+   - Clique **« Exécuter quand même »**
+4. L'application se lance
 
-**Dépendance optionnelle (SSH bastion) :**
-Si tu veux utiliser la fonctionnalité SSH pour récupérer des logs du bastion ADEO, installe [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html). L'exécutable Windows a PuTTY déjà embarqué.
+**C'est tout !** L'app s'ouvrira une fois SmartScreen acceptée.
 
-### Linux
+#### Avec script (optionnel)
+```cmd
+run-windows.bat
+```
+
+#### Dépannage Windows
+- **SmartScreen bloque l'app** → Clic sur « Infos supplémentaires » puis « Exécuter quand même »
+- **SSH bastion ne fonctionne pas** → PuTTY est déjà embarqué dans l'exécutable (aucune action requise)
+
+### 🐧 Linux
 
 ```bash
 chmod +x AnalyseurLog-linux
 ./AnalyseurLog-linux
 ```
 
+---
+
 ## Utilisation
 
 ### Ouverture d'un fichier .log
 1. Clique sur **📁** (ouvrir un fichier)
-2. Sélectionne un `.log` local ou un fichier texte
+2. Sélectionne un `.log` local
 
 ### Récupération de logs distants (bastion ADEO)
 1. Clique sur **🔐 SSH**
-2. Remplis : Caisse, Magasin, Date (optionnel), LDAP, Mot de passe
-3. L'app télécharge automatiquement les logs depuis `APP_LOG`
+2. Remplis les champs :
+   - **Caisse** : numéro de caisse
+   - **Magasin** : numéro de magasin
+   - **Date** : AAAA-MM-JJ (optionnel, défaut = aujourd'hui)
+   - **LDAP** : identifiant LDAP (ex: `10100168`)
+   - **Mot de passe** : ton mot de passe bastion
+3. L'app télécharge automatiquement les logs
 4. Sélectionne dans le menu **📁**
 
 ### Filtres
@@ -84,27 +106,32 @@ chmod +x AnalyseurLog-linux
 - **Plage horaire** : HH:MM - HH:MM
 - **Recherche** : texte libre ou regex
 
-### Export
-- **📊 Stats** : résumé des volumes et temps de réponse
-- **🚫 Groupes** : erreurs regroupées par similarité
-- **💾 Exporter** : CSV ou JSON
-
-## Dépannage
-
-### « Application potentiellement malveillante » (macOS)
-→ Utilise le script `install-macos.sh` (voir Installation → macOS → Option 1)
-
-### SSH bloqué (Windows)
-→ Assure-toi d'avoir installé PuTTY. L'app contient déjà plink.exe/pscp.exe.
-
-### Performance lente sur gros fichiers
-→ L'app charge le fichier de manière asynchrone. Laisse-le finir le parsing avant de filtrer.
-
-## Source
-
-- **Repository** : https://github.com/AnthoDelattre/AnalyseurLogOmni
-- **License** : MIT (interne Leroy Merlin)
+### Statistiques et Export
+- **📊 Tableau** : visualisation des logs filtrés
+- **💾 Exporter** : télécharge en CSV, JSON ou JSONL
 
 ---
 
-Questions ? Crée une issue sur le repo GitHub.
+## Configuration
+
+L'app mémorise :
+- Géométrie de la fenêtre
+- Dernier dossier utilisé
+- Fichiers récents
+- Configuration SSH (sauf mot de passe)
+
+Ces données sont sauvegardées dans `~/.analyseur_config.json`.
+
+---
+
+## Support et issues
+
+- **Repository** : https://github.com/AnthoDelattre/AnalyseurLogOmni
+- **Problèmes ?** Crée une issue sur GitHub
+
+---
+
+## Licence
+
+Interne Leroy Merlin
+
