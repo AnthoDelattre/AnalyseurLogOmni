@@ -68,3 +68,11 @@ if sys.platform == 'darwin':
             'NSPrincipalClass': 'NSApplication',
         },
     )
+    
+    # Signature ad-hoc pour eviter blocage Gatekeeper macOS
+    import subprocess
+    try:
+        subprocess.run(['codesign', '-s', '-', 'dist/AnalyseurLog.app', '--deep', '--force'],
+                      check=True, capture_output=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass  # codesign indisponible, non grave
