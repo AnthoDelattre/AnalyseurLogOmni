@@ -66,21 +66,17 @@ jobs:
       - name: Compiler
         run: pyinstaller --noconfirm --clean AnalyseurLog.spec
 
-      - name: Zipper le .app macOS avec script installation
+      - name: Preparer artefact macOS (avec script installation)
         if: matrix.os == 'macos-latest'
         run: |
-          mkdir -p package_macos
-          cp dist/AnalyseurLog.app.zip package_macos/AnalyseurLog.app.zip
-          cp install-macos.sh package_macos/
-          cd package_macos
-          unzip -q AnalyseurLog.app.zip
-          rm AnalyseurLog.app.zip
-          cd ..
-          # Le dossier package_macos contient maintenant: AnalyseurLog.app + install-macos.sh
-          ls -la package_macos/
+          # Créer un dossier temporaire avec .app + script
+          mkdir -p release_macos
+          cp -r dist/AnalyseurLog.app release_macos/
+          cp install-macos.sh release_macos/
+          ls -la release_macos/
 
       - name: Publier l'artefact
         uses: actions/upload-artifact@v4
         with:
           name: AnalyseurLog-${{ matrix.nom }}
-          path: ${{ matrix.os == 'macos-latest' && 'package_macos' || matrix.artefact }}
+          path: ${{ matrix.os == 'macos-latest' && 'release_macos' || matrix.artefact }}
