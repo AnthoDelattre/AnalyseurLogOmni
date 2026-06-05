@@ -66,8 +66,15 @@ jobs:
       - name: Compiler
         run: pyinstaller --noconfirm --clean AnalyseurLog.spec
 
+      - name: Zipper le .app macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd dist
+          ditto -c -k --keepParent AnalyseurLog.app AnalyseurLog.app.zip
+          ls -lh AnalyseurLog.app.zip
+
       - name: Publier l'artefact
         uses: actions/upload-artifact@v4
         with:
           name: AnalyseurLog-${{ matrix.nom }}
-          path: ${{ matrix.artefact }}
+          path: ${{ matrix.os == 'macos-latest' && 'dist/AnalyseurLog.app.zip' || matrix.artefact }}
