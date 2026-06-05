@@ -45,7 +45,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,  # Desactiver upx pour eviter les soucis macOS
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
@@ -65,5 +65,6 @@ if sys.platform == 'darwin':
             'CFBundleName': 'Analyseur de fichiers .log',
             'CFBundleDisplayName': 'Analyseur de fichiers .log',
             'NSHighResolutionCapable': True,
+            'NSPrincipalClass': 'NSApplication',
         },
     )

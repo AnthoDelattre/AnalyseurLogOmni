@@ -20,9 +20,10 @@ via parseur.py et offre :
 Bibliotheque standard uniquement.  Lancement : python3 analyseur.py
 """
 
+import sys
+import os
 import csv
 import json
-import os
 import re
 import time
 import threading
@@ -30,6 +31,22 @@ import queue
 from collections import Counter
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+
+# Debug: log le demarrage si lance via PyInstaller
+if getattr(sys, 'frozen', False):
+    import logging
+    logging.basicConfig(
+        filename=os.path.expanduser("~/.analyseur_debug.log"),
+        level=logging.DEBUG,
+        format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+    _logger = logging.getLogger("analyseur")
+else:
+    _logger = None
+
+def _log_debug(msg):
+    if _logger:
+        _logger.debug(msg)
 
 import parseur
 
@@ -1326,6 +1343,23 @@ class AnalyseurApp(tk.Tk):
         sauver_config(self.cfg)
         self.destroy()
 
-
 if __name__ == "__main__":
-    AnalyseurApp().mainloop()
+    try:
+        app = AnalyseurApp()
+        
+        # Workaround PyInstaller + macOS Tkinter: utiliser update loop au lieu de mainloop
+        if getattr(sys, 'frozen', False):
+            while True:
+                try:
+                    app.update()
+                except tk.TclError:
+                    break
+                except KeyboardInterrupt:
+                    break
+        else:
+            app.mainloop()
+            
+    except Exception as e:
+        if _logger:
+            _logger.exception(f"Exception: {e}")
+        raise
