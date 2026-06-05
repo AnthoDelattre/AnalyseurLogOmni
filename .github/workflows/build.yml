@@ -69,18 +69,18 @@ jobs:
       - name: Zipper le .app macOS avec script installation
         if: matrix.os == 'macos-latest'
         run: |
-          cd dist
-          # Copier le script d'installation dans dist/
-          cp ../install-macos.sh .
-          # Créer le ZIP avec le script et le .app
-          ditto -c -k --keepParent AnalyseurLog.app AnalyseurLog.app.zip
-          # Ajouter le script au ZIP (en dehors du .app)
-          zip -j AnalyseurLog.app.zip install-macos.sh
-          ls -lh AnalyseurLog.app.zip
-          unzip -l AnalyseurLog.app.zip | head -10
+          mkdir -p package_macos
+          cp dist/AnalyseurLog.app.zip package_macos/AnalyseurLog.app.zip
+          cp install-macos.sh package_macos/
+          cd package_macos
+          unzip -q AnalyseurLog.app.zip
+          rm AnalyseurLog.app.zip
+          cd ..
+          # Le dossier package_macos contient maintenant: AnalyseurLog.app + install-macos.sh
+          ls -la package_macos/
 
       - name: Publier l'artefact
         uses: actions/upload-artifact@v4
         with:
           name: AnalyseurLog-${{ matrix.nom }}
-          path: ${{ matrix.os == 'macos-latest' && 'dist/AnalyseurLog.app.zip' || matrix.artefact }}
+          path: ${{ matrix.os == 'macos-latest' && 'package_macos' || matrix.artefact }}
