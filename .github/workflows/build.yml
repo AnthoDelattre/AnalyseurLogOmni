@@ -66,12 +66,18 @@ jobs:
       - name: Compiler
         run: pyinstaller --noconfirm --clean AnalyseurLog.spec
 
-      - name: Zipper le .app macOS
+      - name: Zipper le .app macOS avec script installation
         if: matrix.os == 'macos-latest'
         run: |
           cd dist
+          # Copier le script d'installation dans dist/
+          cp ../install-macos.sh .
+          # Créer le ZIP avec le script et le .app
           ditto -c -k --keepParent AnalyseurLog.app AnalyseurLog.app.zip
+          # Ajouter le script au ZIP (en dehors du .app)
+          zip -j AnalyseurLog.app.zip install-macos.sh
           ls -lh AnalyseurLog.app.zip
+          unzip -l AnalyseurLog.app.zip | head -10
 
       - name: Publier l'artefact
         uses: actions/upload-artifact@v4
