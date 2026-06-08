@@ -1341,6 +1341,23 @@ class AnalyseurApp(tk.Tk):
         self.cfg["recents"] = self.recents
         self.cfg["dossier"] = getattr(self, "_dernier_dossier", "")
         sauver_config(self.cfg)
+        
+        # Nettoyer les processus SSH orphelins
+        try:
+            import subprocess
+            if sys.platform == "win32":
+                # Windows: tuer plink/pscp restants
+                subprocess.run(["taskkill", "/F", "/IM", "plink.exe"], 
+                             capture_output=True, timeout=2)
+                subprocess.run(["taskkill", "/F", "/IM", "pscp.exe"], 
+                             capture_output=True, timeout=2)
+            else:
+                # Unix/macOS: tuer ssh restants
+                subprocess.run(["pkill", "-f", "ssh|plink|pscp"], 
+                             capture_output=True, timeout=2)
+        except Exception:
+            pass  # Non critique
+        
         self.destroy()
 
 if __name__ == "__main__":

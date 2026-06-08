@@ -731,7 +731,7 @@ def _executer_subprocess(cmd, motdepasse, timeout, on_log=None,
         return 127, msg
 
     file_attente = _queue.Queue()
-    lecteur_actif = [True]  # Flag pour arrêter le lecteur
+    lecteur_actif = [True]
 
     def _lecteur():
         try:
@@ -754,7 +754,11 @@ def _executer_subprocess(cmd, motdepasse, timeout, on_log=None,
     mdp_envoyes = 0
     cle_acceptee = False
     debut = time.time()
+    dernier_output = debut  # Détecter les blocages silencieux
     fini = False
+    
+    # Timeout "silencieux" : si rien ne s'affiche pendant 15s sur Windows, c'est bloqué
+    timeout_silencieux = 15 if os.name == "nt" else 30
 
     def _ecrire(donnees):
         try:
@@ -770,14 +774,19 @@ def _executer_subprocess(cmd, motdepasse, timeout, on_log=None,
             return 130, "".join(sortie) + "\n[interrompu]"
         
         elapsed = time.time() - debut
+        elapsed_silencieux = time.time() - dernier_output
+        
         if elapsed > timeout:
             proc.kill()
-            return 124, "".join(sortie) + f"\n[timeout après {elapsed:.1f}s]"
+            return 124, "".join(sortie) + f"\n[timeout global après {elapsed:.1f}s]"
+        
+        if elapsed_silencieux > timeout_silencieux:
+            proc.kill()
+            return 124, "".join(sortie) + f"\n[timeout: aucun output pendant {elapsed_silencieux:.1f}s]"
         
         try:
             octet = file_attente.get(timeout=0.5)
         except _queue.Empty:
-            # Vérifier si le processus est terminé
             if proc.poll() is not None:
                 fini = True
             continue
@@ -786,6 +795,7 @@ def _executer_subprocess(cmd, motdepasse, timeout, on_log=None,
             fini = True
             continue
         
+        dernier_output = time.time()  # Réinitialiser le timer silencieux
         texte = octet.decode("utf-8", "replace")
         sortie.append(texte)
         if on_log:
@@ -906,8 +916,11 @@ def commande_bastion(ldap, motdepasse, caisse=None, magasin=None, date=None):
     if SSH_BACKEND == "plink":
         # plink gere l'auth du bastion via -pw ; le prompt du rebond interne
         # (sshclient) est alimente sur stdin par le driver, la cle d'hote par 'y'.
+        # ATTENTION: plink -t (pseudo-terminal) peut causer des blocages
+        # On utilise -ssh sans -t et laisse le driver gérer la communication
         return [
-            _plink(), "-ssh", "-t", "-pw", motdepasse,
+            _plink(), "-ssh", "-pw", motdepasse,
+            "-o", "StrictHostKeyChecking=accept-new",
             cible,
             distant,
         ]
