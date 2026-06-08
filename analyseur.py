@@ -820,6 +820,8 @@ class AnalyseurApp(tk.Tk):
         
         top.lift()
 
+    def _on_combo_fichier(self, _e=None):
+        """Appelé quand l'utilisateur sélectionne un fichier dans la combobox."""
         idx = self.combo_fichiers.current()
         if 0 <= idx < len(getattr(self, "fichiers_bastion", [])):
             chemin = self.fichiers_bastion[idx]
