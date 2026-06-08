@@ -198,6 +198,8 @@ class AnalyseurApp(tk.Tk):
 
         ttk.Button(barre, text="🔐  SSH", style="Outil.TButton",
                    command=self._ouvrir_ssh).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(barre, text="📋 Info", style="Outil.TButton",
+                   command=self._afficher_info_caisse).pack(side=tk.LEFT, padx=(4, 0))
         ttk.Label(barre, text="📁", style="Barre.TLabel",
                   font=(self.police, 13)).pack(side=tk.LEFT, padx=(8, 2))
         self.combo_fichiers = ttk.Combobox(barre, state="disabled", width=26,
@@ -726,7 +728,98 @@ class AnalyseurApp(tk.Tk):
             self.combo_fichiers.current(0)
             self.ouvrir(self.fichiers_bastion[0])
 
-    def _on_combo_fichier(self, _e=None):
+    def _afficher_info_caisse(self):
+        """Cherche et affiche le fichier info_ks.txt dans les fichiers bastion récupérés."""
+        fichier_info = None
+        for f in getattr(self, "fichiers_bastion", []):
+            if os.path.basename(f).lower() == "info_ks.txt":
+                fichier_info = f
+                break
+        
+        if not fichier_info or not os.path.exists(fichier_info):
+            messagebox.showinfo("Info Caisse", "Fichier info_ks.txt non trouvé.")
+            return
+        
+        # Parser le fichier
+        infos = {}
+        try:
+            with open(fichier_info, "r", encoding="utf-8") as f:
+                contenu = f.read()
+                for ligne in contenu.split("\n"):
+                    ligne = ligne.strip()
+                    if "=" in ligne:
+                        cle, val = ligne.split("=", 1)
+                        cle = cle.strip()
+                        val = val.strip()
+                        if cle not in infos:
+                            infos[cle] = []
+                        infos[cle].append(val)
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de lire info_ks.txt: {e}")
+            return
+        
+        # Créer la fenêtre d'affichage
+        top = self._nouvelle_fenetre("📋 Informations Caisse", "600x500")
+        cadre = ttk.Frame(top, style="TFrame", padding=16)
+        cadre.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre
+        titre = ttk.Label(cadre, text="Informations Caisse", 
+                         font=(self.police, 14, "bold"))
+        titre.pack(anchor="w", pady=(0, 16))
+        
+        # Zone de texte scrollable
+        frame_text = ttk.Frame(cadre)
+        frame_text.pack(fill=tk.BOTH, expand=True)
+        
+        text_widget = tk.Text(frame_text, wrap=tk.WORD, height=20, width=70,
+                             bg=COULEURS["carte"], fg=COULEURS["texte"],
+                             font=(self.mono, 10), relief=tk.FLAT, bd=0)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar = ttk.Scrollbar(frame_text, command=text_widget.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text_widget.configure(yscrollcommand=scrollbar.set)
+        
+        # Remplir le texte avec formatage
+        text_widget.tag_configure("cle", font=(self.mono, 10, "bold"), 
+                                 foreground=COULEURS["primaire"])
+        text_widget.tag_configure("val", font=(self.mono, 10), 
+                                 foreground=COULEURS["texte"])
+        text_widget.tag_configure("multi", font=(self.mono, 9), 
+                                 foreground=COULEURS["texte_doux"])
+        
+        for cle, vals in infos.items():
+            text_widget.insert(tk.END, f"{cle:15}", "cle")
+            text_widget.insert(tk.END, " = ", "val")
+            
+            if len(vals) == 1:
+                # Valeur simple
+                text_widget.insert(tk.END, vals[0] + "\n", "val")
+            else:
+                # Plusieurs valeurs (liste)
+                text_widget.insert(tk.END, vals[0] + "\n", "val")
+                for val in vals[1:]:
+                    text_widget.insert(tk.END, " " * 17, "val")
+                    text_widget.insert(tk.END, val + "\n", "multi")
+        
+        text_widget.configure(state=tk.DISABLED)
+        
+        # Bouton Copier tout
+        def copier_tout():
+            contenu = text_widget.get("1.0", tk.END)
+            top.clipboard_clear()
+            top.clipboard_append(contenu)
+            messagebox.showinfo("Copié", "Informations copiées dans le presse-papiers")
+        
+        btn_frame = ttk.Frame(cadre)
+        btn_frame.pack(fill=tk.X, pady=(12, 0))
+        btn_copier = ttk.Button(btn_frame, text="📋 Copier tout", 
+                               command=copier_tout, style="Outil.TButton")
+        btn_copier.pack(side=tk.LEFT, padx=(0, 8))
+        
+        top.lift()
+
         idx = self.combo_fichiers.current()
         if 0 <= idx < len(getattr(self, "fichiers_bastion", [])):
             chemin = self.fichiers_bastion[idx]
