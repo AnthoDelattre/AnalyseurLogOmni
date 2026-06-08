@@ -121,7 +121,7 @@ class AnalyseurApp(tk.Tk):
         self._init_theme()
         self._construire_interface()
 
-        self.bind("<Control-o>", lambda e: self.ouvrir())
+         self.bind("<Control-o>", lambda e: self.ouvrir())
         self.bind("<Command-o>", lambda e: self.ouvrir())
         self.bind("<Control-f>", lambda e: self.entry_rech.focus_set())
         self.bind("<Command-f>", lambda e: self.entry_rech.focus_set())
@@ -130,12 +130,10 @@ class AnalyseurApp(tk.Tk):
         if sys.platform == "darwin":
             self.protocol("WM_DELETE_WINDOW", lambda: self.iconify())
             self.bind("<Command-q>", lambda e: self._quitter())
+            # macOS Dock click: détecter quand l'app reprend le focus (après iconify)
+            self.bind("<FocusIn>", self._on_focus_in_macos)
         else:
             self.protocol("WM_DELETE_WINDOW", self._quitter)
-        
-        # macOS: gérer clic sur Dock (FocusIn quand l'app retrouve le focus)
-        if sys.platform == "darwin":
-            self.bind("<FocusIn>", lambda e: self.deiconify() if self.state() == "withdrawn" else None)
 
         dossier = self.cfg.get("dossier")
         if dossier and os.path.isdir(dossier):
@@ -1440,6 +1438,13 @@ class AnalyseurApp(tk.Tk):
         tv.bind("<Double-1>", ouvrir_groupe)
 
     # -------------------------------------------------- fermeture
+    def _on_focus_in_macos(self, event):
+        """macOS: restaurer fenêtre quand clic sur Dock après iconify()"""
+        # Si la fenêtre est iconifiée/minimisée, la restaurer
+        if self.state() == "iconic":
+            self.state("normal")
+            self.lift()  # Mettre au premier plan
+    
     def _quitter(self):
         self._chargement_actif = False
         self.cfg["geometrie"] = self.geometry()
