@@ -125,7 +125,13 @@ class AnalyseurApp(tk.Tk):
         self.bind("<Command-o>", lambda e: self.ouvrir())
         self.bind("<Control-f>", lambda e: self.entry_rech.focus_set())
         self.bind("<Command-f>", lambda e: self.entry_rech.focus_set())
-        self.protocol("WM_DELETE_WINDOW", self._quitter)
+        
+        # Sur macOS: croix = miniaturiser (pas quitter). Cmd+Q pour quitter
+        if sys.platform == "darwin":
+            self.protocol("WM_DELETE_WINDOW", lambda: self.iconify())
+            self.bind("<Command-q>", lambda e: self._quitter())
+        else:
+            self.protocol("WM_DELETE_WINDOW", self._quitter)
         
         # macOS: gérer clic sur Dock (FocusIn quand l'app retrouve le focus)
         if sys.platform == "darwin":
