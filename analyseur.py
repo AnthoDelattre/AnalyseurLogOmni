@@ -126,6 +126,10 @@ class AnalyseurApp(tk.Tk):
         self.bind("<Control-f>", lambda e: self.entry_rech.focus_set())
         self.bind("<Command-f>", lambda e: self.entry_rech.focus_set())
         self.protocol("WM_DELETE_WINDOW", self._quitter)
+        
+        # macOS: gérer clic sur Dock (FocusIn quand l'app retrouve le focus)
+        if sys.platform == "darwin":
+            self.bind("<FocusIn>", lambda e: self.deiconify() if self.state() == "withdrawn" else None)
 
         dossier = self.cfg.get("dossier")
         if dossier and os.path.isdir(dossier):
