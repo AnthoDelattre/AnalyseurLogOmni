@@ -65,8 +65,19 @@ def _pscp():
 #   - "plink" : Windows, via plink.exe/pscp.exe (PuTTY) embarques ou dans le PATH.
 if _PTY_OK:
     SSH_BACKEND = "pty"
-elif os.name == "nt" and _plink() and _pscp():
-    SSH_BACKEND = "plink"
+elif os.name == "nt":
+    plink_path = _plink()
+    pscp_path = _pscp()
+    if plink_path and pscp_path:
+        SSH_BACKEND = "plink"
+    else:
+        SSH_BACKEND = None
+        # Debug pour Windows
+        if os.name == "nt":
+            import sys
+            print(f"[PARSEUR DEBUG] Windows détecté mais plink/pscp manquants", file=sys.stderr)
+            print(f"  plink: {plink_path}", file=sys.stderr)
+            print(f"  pscp: {pscp_path}", file=sys.stderr)
 else:
     SSH_BACKEND = None
 
@@ -697,28 +708,46 @@ def _executer_subprocess(cmd, motdepasse, timeout, on_log=None,
     """
     import threading
     import queue as _queue
+    
+    # Debug: log la commande
+    cmd_str = " ".join(cmd[:3]) + ("..." if len(cmd) > 3 else "")
+    if on_log:
+        on_log(f"[DEBUG] Lancement: {cmd_str}\n")
+    
     try:
         proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, bufsize=0,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except FileNotFoundError:
-        return 127, "command not found: %s" % cmd[0]
+    except FileNotFoundError as e:
+        msg = f"command not found: {cmd[0]}"
+        if on_log:
+            on_log(f"[ERROR] {msg}\n")
+        return 127, msg
+    except Exception as e:
+        msg = f"Erreur Popen: {e}"
+        if on_log:
+            on_log(f"[ERROR] {msg}\n")
+        return 127, msg
 
     file_attente = _queue.Queue()
+    lecteur_actif = [True]  # Flag pour arrêter le lecteur
 
     def _lecteur():
-        while True:
-            try:
-                octet = proc.stdout.read(1)
-            except Exception:
-                break
-            if not octet:
-                break
-            file_attente.put(octet)
-        file_attente.put(None)
+        try:
+            while lecteur_actif[0]:
+                try:
+                    octet = proc.stdout.read(1)
+                except Exception:
+                    break
+                if not octet:
+                    break
+                file_attente.put(octet)
+        finally:
+            file_attente.put(None)
 
-    threading.Thread(target=_lecteur, daemon=True).start()
+    thread_lecteur = threading.Thread(target=_lecteur, daemon=True)
+    thread_lecteur.start()
 
     sortie = []
     buf = ""
@@ -731,41 +760,57 @@ def _executer_subprocess(cmd, motdepasse, timeout, on_log=None,
         try:
             proc.stdin.write(donnees)
             proc.stdin.flush()
-        except (OSError, ValueError):
-            pass
+        except (OSError, ValueError) as e:
+            if on_log:
+                on_log(f"[DEBUG] Erreur ecriture stdin: {e}\n")
 
     while not fini:
         if doit_continuer is not None and not doit_continuer():
             proc.kill()
             return 130, "".join(sortie) + "\n[interrompu]"
-        if time.time() - debut > timeout:
+        
+        elapsed = time.time() - debut
+        if elapsed > timeout:
             proc.kill()
-            return 124, "".join(sortie) + "\nconnection timed out"
+            return 124, "".join(sortie) + f"\n[timeout après {elapsed:.1f}s]"
+        
         try:
-            octet = file_attente.get(timeout=0.2)
+            octet = file_attente.get(timeout=0.5)
         except _queue.Empty:
+            # Vérifier si le processus est terminé
             if proc.poll() is not None:
                 fini = True
             continue
+        
         if octet is None:
             fini = True
             continue
+        
         texte = octet.decode("utf-8", "replace")
         sortie.append(texte)
         if on_log:
             on_log(texte)
+        
         buf += texte
         bas = buf.lower()
+        
+        # Détecter prompts et répondre
         if mdp_envoyes < max_mdp and "password" in bas and bas.rstrip().endswith(":"):
+            if on_log:
+                on_log(f"[DEBUG] Prompt password détecté (#{mdp_envoyes+1}), envoi mot de passe\n")
             _ecrire((motdepasse + "\n").encode())
             mdp_envoyes += 1
             buf = ""
         elif not cle_acceptee and ("(y/n" in bas or "store key in cache" in bas):
+            if on_log:
+                on_log(f"[DEBUG] Prompt clé d'hôte détecté, envoi 'y'\n")
             _ecrire(b"y\n")
             cle_acceptee = True
             buf = ""
         elif len(buf) > 8192:
             buf = buf[-2048:]
+    
+    lecteur_actif[0] = False
     proc.wait()
     return proc.returncode or 0, "".join(sortie)
 
