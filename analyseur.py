@@ -121,7 +121,7 @@ class AnalyseurApp(tk.Tk):
         self._init_theme()
         self._construire_interface()
 
-         self.bind("<Control-o>", lambda e: self.ouvrir())
+        self.bind("<Control-o>", lambda e: self.ouvrir())
         self.bind("<Command-o>", lambda e: self.ouvrir())
         self.bind("<Control-f>", lambda e: self.entry_rech.focus_set())
         self.bind("<Command-f>", lambda e: self.entry_rech.focus_set())
