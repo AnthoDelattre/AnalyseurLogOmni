@@ -914,13 +914,13 @@ def commande_bastion(ldap, motdepasse, caisse=None, magasin=None, date=None):
     # nettoyage du dossier puis lancement du script
     distant = f"rm -rf {appdir} 2>/dev/null; mkdir -p {appdir}; {interne}"
     if SSH_BACKEND == "plink":
-        # plink gere l'auth du bastion via -pw ; le prompt du rebond interne
+        # plink ne supporte pas les options -o (OpenSSH). 
+        # Plink gere l'auth du bastion via -pw ; le prompt du rebond interne
         # (sshclient) est alimente sur stdin par le driver, la cle d'hote par 'y'.
         # ATTENTION: plink -t (pseudo-terminal) peut causer des blocages
         # On utilise -ssh sans -t et laisse le driver gérer la communication
         return [
             _plink(), "-ssh", "-pw", motdepasse,
-            "-o", "StrictHostKeyChecking=accept-new",
             cible,
             distant,
         ]
